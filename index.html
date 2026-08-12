@@ -14,6 +14,7 @@
   --acid:#0052FF; --acid-dim:rgba(0,82,255,0.10);
   --cyan:#00C3FF; --cream:#F0F2F5; --muted:#9BA8BA; --muted-2:#6B7A90;
   --border:rgba(255,255,255,0.08); --border-a:rgba(255,255,255,0.2);
+  --wash:rgba(255,255,255,0.032); --wash-2:rgba(255,255,255,0.055);
   --fd:'Bebas Neue',sans-serif; --fb:'DM Sans',sans-serif; --fm:'JetBrains Mono',monospace;
   --pad:clamp(20px,5vw,58px);
 }
@@ -22,6 +23,7 @@
     --ink:#F6F4EF; --steel:#FCFBF8; --steel-2:#EFECE4;
     --cream:#121110; --muted:#5C5854; --muted-2:#7A756F;
     --border:rgba(0,0,0,0.08); --border-a:rgba(0,82,255,0.3);
+    --wash:rgba(0,0,0,0.028); --wash-2:rgba(0,82,255,0.045);
     --acid-dim:rgba(0,82,255,0.06);
   }
 }
@@ -117,13 +119,14 @@ h1 em{font-style:normal;color:var(--acid);display:block}
 
 /* ---------- campos ---------- */
 .field{margin-top:26px;position:relative}
-label.lbl{display:block;font-size:.8rem;color:var(--muted-2);margin-bottom:8px}
+label.lbl{display:block;font-size:.86rem;font-weight:500;color:var(--muted);margin-bottom:10px}
 input[type=text],textarea{
-  width:100%;background:transparent;color:var(--cream);
+  width:100%;background:var(--wash);color:var(--cream);
   border:none;border-bottom:1px solid var(--border);border-radius:0;
-  padding:10px 2px 14px;font-family:var(--fb);line-height:1.6;
-  transition:border-color .3s;
+  padding:14px 16px;font-family:var(--fb);line-height:1.6;
+  transition:background .25s,border-color .3s;
 }
+input[type=text]:focus,textarea:focus{background:var(--wash-2)}
 input[type=text]{font-size:1.05rem}
 textarea{min-height:112px;resize:none;overflow:hidden;font-size:1.14rem;line-height:1.66}
 input::placeholder,textarea::placeholder{color:var(--muted-2);opacity:.72}
@@ -131,8 +134,7 @@ input:focus,textarea:focus{outline:none}
 .field::after{content:"";position:absolute;left:0;bottom:0;height:1px;width:0;
   background:linear-gradient(90deg,var(--acid),var(--cyan));transition:width .5s cubic-bezier(.16,.8,.3,1)}
 .field.act::after{width:100%}
-.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media (max-width:560px){.two{grid-template-columns:1fr}}
+.two{display:grid;grid-template-columns:1fr;gap:26px}
 
 /* ---------- micrófono ---------- */
 .mrow{display:flex;align-items:center;gap:13px;margin-top:13px;flex-wrap:wrap}
@@ -160,7 +162,7 @@ input:focus,textarea:focus{outline:none}
   border:1px solid var(--acid);border-radius:2px;padding:15px 27px;font-family:var(--fd);
   font-size:1.16rem;letter-spacing:.06em;cursor:pointer;transition:filter .2s,transform .14s}
 .btn:hover{filter:brightness(1.14)}
-.btn:active{transform:translateY(1px)}
+.btn:active{filter:brightness(.92)}
 .btn:disabled{opacity:.5;cursor:default}
 .btn svg{width:16px;height:16px}
 .back{background:none;border:none;color:var(--muted-2);font-size:.86rem;cursor:pointer;transition:color .2s}
@@ -328,8 +330,8 @@ function render(){
         <p class="help rev d3">Preparar un ejercicio para alguien de operaciones no se parece en nada a prepararlo para alguien de gestión humana, y queremos acertar.</p>
         <div class="rev d4">
           <div class="field two">
-            <div><label class="lbl" for="nombre">Tu nombre</label><input type="text" id="nombre" data-k="nombre" placeholder="Nombre y apellido"></div>
-            <div><label class="lbl" for="cargo">Tu cargo</label><input type="text" id="cargo" data-k="cargo" placeholder="Como aparece formalmente"></div>
+            <div><label class="lbl" for="nombre">Tu nombre completo</label><input type="text" id="nombre" data-k="nombre" placeholder="Nombre y apellido"></div>
+            <div><label class="lbl" for="cargo">Tu cargo</label><input type="text" id="cargo" data-k="cargo" placeholder="Por ejemplo: Directora de Operaciones"></div>
           </div>
           <div class="field" id="f_funcion">
             <label class="lbl" for="t_funcion">¿De qué respondes en el día a día?</label>
@@ -413,6 +415,10 @@ function render(){
   if(CAN){
     stage.querySelectorAll('.mic').forEach(b=> b.addEventListener('click',()=> toggle(b.id.slice(2))));
   }
+  /* al presionar un botón el campo pierde el foco, el bloque se reacomoda y el botón
+     se mueve antes de soltar, de modo que el clic nunca se dispara. Se evita el blur. */
+  stage.querySelectorAll('.btn,.back,.mic').forEach(b=>
+    b.addEventListener('mousedown',e=>e.preventDefault()));
   const ta=stage.querySelector('textarea');
   if(ta && s.t!=='cover') setTimeout(()=>ta.focus(),480);
 
@@ -440,7 +446,9 @@ function store(){ try{ localStorage.setItem(KEY,JSON.stringify(data)); }catch(e)
 function next(){
   const s=FLOW[i];
   if(s.t==='ident'){
-    if(!(data.nombre||'').trim()){ warn('Nos falta tu nombre para saber de quién es el caso.'); return; }
+    const nm=(data.nombre||'').trim();
+    if(!nm){ warn('Nos falta tu nombre para saber de quién es el caso.'); document.getElementById('nombre').focus(); return; }
+    if(nm.split(/\s+/).length<2){ warn('Escríbenos tu nombre y tu apellido, así te identificamos en la lista.'); document.getElementById('nombre').focus(); return; }
   }
   if(s.t==='ask' && s.k==='cuello' && (data.cuello||'').trim().length<15){
     warn('Cuéntanos aunque sea en una frase qué te está consumiendo el tiempo.'); return;
