@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demo de dictado por voz · Diagnóstico de Caso · Vectiva Consulting</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#030407; --deep:#07090F; --steel:#11141C; --steel-2:#161921;
+  --acid:#0052FF; --acid-dim:rgba(0,82,255,0.10); --acid-glow:rgba(0,82,255,0.18);
+  --cyan:#00C3FF; --cream:#F0F2F5; --muted:#9BA8BA; --muted-2:#6B7A90;
+  --border:rgba(255,255,255,0.08); --border-a:rgba(255,255,255,0.18);
+  --fd:'Bebas Neue',sans-serif; --fb:'DM Sans',sans-serif; --fm:'JetBrains Mono',monospace;
+}
+@media (prefers-color-scheme:light){
+  :root{
+    --ink:#F6F4EF; --deep:#EBE8E0; --steel:#FCFBF8; --steel-2:#F0EDE5;
+    --cream:#121110; --muted:#5C5854; --muted-2:#7A756F;
+    --border:rgba(0,0,0,0.05); --border-a:rgba(0,82,255,0.3);
+  }
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{
+  font-family:var(--fb); background:var(--ink); color:var(--cream);
+  min-height:100dvh; line-height:1.6; -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column;
+}
+body::before{
+  content:""; position:fixed; inset:0; width:100vw; height:100vh;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.022'/%3E%3C/svg%3E");
+  pointer-events:none; z-index:9999; isolation:isolate;
+}
+:focus-visible{outline:2px solid var(--cyan); outline-offset:4px; border-radius:4px}
+
+#prog{position:fixed;top:0;left:0;height:2px;background:linear-gradient(90deg,var(--acid),var(--cyan));z-index:300;width:0;transition:width .35s cubic-bezier(.2,.7,.3,1)}
+
+/* ---------- estructura ---------- */
+.bar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:22px 28px; border-bottom:1px solid var(--border);
+  position:sticky; top:0; background:var(--ink); z-index:200;
+}
+.n-logo{display:flex;align-items:center;gap:6px;text-decoration:none}
+.n-logo-text{display:flex;flex-direction:column;justify-content:center}
+.n-logo-main,.n-logo-sub{font-family:var(--fb);text-transform:uppercase;line-height:1;color:var(--cream)}
+.n-logo-main{font-weight:800;font-size:1rem;letter-spacing:.15em}
+.n-logo-sub{font-weight:500;font-size:.5rem;letter-spacing:.25em;margin-top:3px}
+.n-dot{width:6px;height:6px;background:#00C3FF;border-radius:50%;box-shadow:0 0 8px #00C3FF}
+.step{font-family:var(--fm);font-size:.7rem;color:var(--muted-2);letter-spacing:.04em}
+.step b{color:var(--cream);font-weight:500}
+
+main{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:0 24px}
+.wrap{width:100%;max-width:720px;padding:clamp(40px,7vh,88px) 0 72px}
+
+.screen{display:none;animation:rise .5s cubic-bezier(.2,.7,.3,1) both}
+.screen.on{display:block}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.eyebrow{font-family:var(--fm);font-size:.68rem;letter-spacing:.16em;text-transform:uppercase;color:var(--cyan);margin-bottom:20px}
+h1{font-family:var(--fd);font-size:clamp(3rem,9vw,5.5rem);line-height:.92;letter-spacing:.01em;font-weight:400}
+h1 em{font-style:normal;color:var(--acid)}
+.lede{color:var(--muted);font-size:1.05rem;max-width:56ch;margin-top:24px}
+.lede strong{color:var(--cream);font-weight:500}
+
+/* ---------- pregunta ---------- */
+.q-num{font-family:var(--fm);font-size:.7rem;color:var(--muted-2);letter-spacing:.1em;margin-bottom:14px}
+.q-title{font-size:clamp(1.4rem,3.4vw,1.95rem);font-weight:500;line-height:1.28;letter-spacing:-.015em;max-width:24ch}
+.q-help{color:var(--muted);font-size:.95rem;margin-top:12px;max-width:52ch}
+
+.field{margin-top:34px;position:relative}
+textarea{
+  width:100%; min-height:190px; resize:vertical;
+  background:var(--steel); color:var(--cream);
+  border:1px solid var(--border); border-radius:2px;
+  padding:22px 22px 22px 24px; font-family:var(--fb); font-size:1rem; line-height:1.65;
+  transition:border-color .25s, background .25s;
+}
+textarea::placeholder{color:var(--muted-2)}
+textarea:focus{outline:none;border-color:var(--border-a);background:var(--steel-2)}
+.field::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:2px;
+  background:var(--acid); opacity:0; transition:opacity .25s;
+}
+.field.live::before{opacity:1;background:linear-gradient(180deg,var(--acid),var(--cyan))}
+
+.ghost{
+  min-height:22px; margin-top:10px; font-size:.92rem; color:var(--muted-2);
+  font-style:italic; padding-left:2px;
+}
+
+/* ---------- control de voz ---------- */
+.voice{display:flex;align-items:center;gap:16px;margin-top:18px;flex-wrap:wrap}
+.mic{
+  display:inline-flex;align-items:center;gap:11px;
+  background:transparent;color:var(--cream);
+  border:1px solid var(--border-a); border-radius:2px;
+  padding:12px 18px; font-family:var(--fb); font-size:1.05rem; letter-spacing:.06em;
+  cursor:pointer; transition:border-color .2s,background .2s,color .2s;
+}
+.mic:hover{border-color:var(--cyan)}
+.mic.rec{background:var(--acid);border-color:var(--acid);color:#fff}
+.mic svg{width:15px;height:15px;flex:none}
+
+.meter{display:flex;align-items:flex-end;gap:3px;height:24px}
+.meter i{width:3px;height:3px;background:var(--muted-2);border-radius:1px;transition:height .09s linear,background .2s}
+.meter.on i{background:var(--cyan)}
+
+.state{font-family:var(--fm);font-size:.68rem;color:var(--muted-2);letter-spacing:.06em}
+.state.warn{color:var(--acid)}
+
+.count{margin-top:16px;display:flex;align-items:center;gap:12px}
+.count-track{flex:1;max-width:180px;height:1px;background:var(--border);position:relative}
+.count-fill{position:absolute;left:0;top:0;height:1px;width:0;background:var(--acid);transition:width .3s}
+.count-fill.done{background:var(--cyan)}
+.count-txt{font-family:var(--fm);font-size:.68rem;color:var(--muted-2)}
+
+/* ---------- botones ---------- */
+.nav{margin-top:44px;display:flex;align-items:center;gap:20px;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:12px;
+  background:var(--acid);color:#fff;border:1px solid var(--acid);border-radius:2px;
+  padding:15px 26px;font-family:var(--fd);font-size:1.15rem;letter-spacing:.06em;
+  cursor:pointer;transition:filter .2s,transform .2s;
+}
+.btn:hover{filter:brightness(1.12)}
+.btn:active{transform:translateY(1px)}
+.btn svg{width:17px;height:17px}
+.btn-ghost{background:transparent;color:var(--muted);border-color:var(--border)}
+.btn-ghost:hover{color:var(--cream);border-color:var(--border-a);filter:none}
+
+/* ---------- avisos ---------- */
+.note{
+  border-left:2px solid var(--acid); background:var(--acid-dim);
+  padding:16px 20px; margin-top:28px; font-size:.9rem; color:var(--muted);
+}
+.note b{color:var(--cream);font-weight:500}
+.note.hide{display:none}
+
+details.alt{margin-top:52px;border-top:1px solid var(--border);padding-top:22px}
+details.alt summary{cursor:pointer;font-size:.88rem;color:var(--muted-2);list-style:none;transition:color .2s}
+details.alt summary:hover{color:var(--cream)}
+details.alt summary::-webkit-details-marker{display:none}
+details.alt summary::before{content:"+ ";font-family:var(--fm)}
+details.alt[open] summary::before{content:"– "}
+.alt-body{margin-top:16px;font-size:.9rem;color:var(--muted);display:grid;gap:12px}
+
+/* ---------- cierre ---------- */
+pre{
+  background:var(--steel); border:1px solid var(--border); border-radius:2px;
+  padding:20px; overflow:auto; font-family:var(--fm); font-size:.78rem;
+  line-height:1.7; color:var(--muted); margin-top:26px; max-height:340px;
+}
+.check{display:grid;gap:11px;margin-top:26px}
+.check li{display:flex;gap:12px;font-size:.92rem;color:var(--muted);list-style:none}
+.check li span{color:var(--cyan);font-family:var(--fm);font-size:.75rem;padding-top:3px}
+</style>
+</head>
+<body>
+
+<div id="prog"></div>
+
+<header class="bar">
+  <a href="#" class="n-logo" aria-label="Vectiva Consulting">
+    <div class="n-logo-text">
+      <span class="n-logo-main">VECTIVA</span>
+      <span class="n-logo-sub">CONSULTING</span>
+    </div>
+    <span class="n-dot"></span>
+  </a>
+  <div class="step" id="stepTxt">Demo de dictado</div>
+</header>
+
+<main>
+<div class="wrap">
+
+  <!-- PORTADA -->
+  <section class="screen on" id="s0">
+    <div class="eyebrow">Diagnóstico previo</div>
+    <h1>Cuéntanos<br><em>tu caso</em></h1>
+    <p class="lede">Con esto armamos el ejercicio que vas a trabajar en el Laboratorio. <strong>Si llega general, tu ejercicio va a ser general.</strong> Son cuatro preguntas y toma unos cinco minutos.</p>
+    <p class="lede">Puedes dictarlas en vez de escribirlas: toca el micrófono y habla normal. Se transcribe en tu propio navegador y lo que queda guardado es el texto, no tu voz. No te preocupes por la redacción, eso lo limpiamos nosotros.</p>
+
+    <div class="note hide" id="noSupport">
+      <b>Este navegador no tiene dictado.</b> Puedes responder escribiendo con normalidad, o abrir el enlace en Chrome, Edge o Safari si prefieres hablar.
+    </div>
+
+    <div class="nav">
+      <button class="btn" onclick="go(1)">
+        Comenzar
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+      <button class="btn btn-ghost" onclick="wipe()">Borrar borrador</button>
+    </div>
+  </section>
+
+  <!-- PREGUNTAS (generadas) -->
+  <section class="screen" id="s1"></section>
+  <section class="screen" id="s2"></section>
+  <section class="screen" id="s3"></section>
+  <section class="screen" id="s4"></section>
+
+  <!-- CIERRE -->
+  <section class="screen" id="s5">
+    <div class="eyebrow">Demo</div>
+    <h1>Esto es lo<br><em>que llega</em></h1>
+    <p class="lede">En la versión real este objeto se escribe en Supabase y el participante ve una pantalla de agradecimiento. Acá lo mostramos para que puedas verificar la calidad del transcrito.</p>
+    <pre id="out"></pre>
+    <ul class="check">
+      <li><span>01</span> Revisa si los nombres propios y las siglas quedaron bien escritos.</li>
+      <li><span>02</span> Fíjate si el texto se cortó por silencios largos o si aguantó la pausa.</li>
+      <li><span>03</span> Mira si el resultado se lee como algo procesable o como un divague.</li>
+    </ul>
+    <div class="nav">
+      <button class="btn" onclick="copyOut()" id="copyBtn">Copiar resultado</button>
+      <button class="btn btn-ghost" onclick="wipe()">Empezar de nuevo</button>
+    </div>
+  </section>
+
+</div>
+</main>
+
+<script>
+/* ============ contenido ============ */
+const QS = [
+  { id:'tarea',
+    t:'Piensa en una tarea concreta de la última semana que te haya tomado más tiempo del que valía. ¿Cuál fue y cuánto te tomó?',
+    h:'Una tarea puntual, no un problema general del área. Si se te vienen varias, escoge la que más te haya pesado.',
+    ph:'El martes me tomó tres horas armar el informe mensual del comité...',
+    goal:60 },
+  { id:'insumo',
+    t:'¿Con qué arrancas esa tarea y qué entregas al final?',
+    h:'Qué documento, correo o archivo abres primero, dónde está guardado, y a quién le llega el resultado.',
+    ph:'Bajo el reporte de ventas del sistema, lo cruzo con un Excel que me manda contabilidad...',
+    goal:70 },
+  { id:'ritmo',
+    t:'¿Cada cuánto te toca hacerla, y cómo sabes cuándo quedó bien hecha?',
+    h:'Nos sirve saber si es semanal, mensual o suelta, y quién revisa o aprueba el resultado.',
+    ph:'Todos los meses. Lo revisa mi jefe antes del jueves y me lo devuelve si...',
+    goal:45 },
+  { id:'limites',
+    t:'¿Hay información ahí que no pueda salir de la organización, o herramientas que tu área de tecnología no permita?',
+    h:'Si no estás seguro, dilo así. Es mejor saberlo antes que en plena sesión.',
+    ph:'El archivo tiene datos de clientes. No sé si podemos subirlo...',
+    goal:30 }
+];
+
+const KEY = 'vectiva_demo_voz_v1';
+let data = {};
+try { data = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e){ data = {}; }
+
+/* ============ soporte ============ */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const SECURE = window.isSecureContext;
+if (!SR || !SECURE) document.getElementById('noSupport').classList.remove('hide');
+
+/* ============ construir pantallas ============ */
+QS.forEach((q,i)=>{
+  const n = i+1;
+  document.getElementById('s'+n).innerHTML = `
+    <div class="q-num">PREGUNTA ${String(n).padStart(2,'0')} / 04</div>
+    <h2 class="q-title">${q.t}</h2>
+    <p class="q-help">${q.h}</p>
+    <div class="field" id="f${n}">
+      <textarea id="t${n}" placeholder="${q.ph}" aria-label="Respuesta ${n}"></textarea>
+    </div>
+    <div class="ghost" id="g${n}"></div>
+    <div class="voice">
+      <button class="mic" id="m${n}" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+        <span id="ml${n}">DICTAR</span>
+      </button>
+      <div class="meter" id="mt${n}"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="state" id="st${n}"></div>
+    </div>
+    <div class="count">
+      <div class="count-track"><div class="count-fill" id="cf${n}"></div></div>
+      <div class="count-txt" id="ct${n}">0 palabras</div>
+    </div>
+    <div class="nav">
+      <button class="btn" onclick="go(${n+1})">
+        ${n===4 ? 'Ver resultado' : 'Siguiente'}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+      </button>
+      <button class="btn btn-ghost" onclick="go(${n-1})">Atrás</button>
+    </div>
+    ${n===1 ? `<details class="alt"><summary>Prefiero responder de otra forma</summary><div class="alt-body">
+      <div>Descarga las preguntas en un documento, respóndelas con calma y devuélvenoslo por correo.</div>
+      <div>O mándanos una nota de voz por WhatsApp respondiendo las cuatro seguidas.</div>
+      <div>Cualquiera de las dos nos sirve igual. Lo único que no nos sirve es que se quede sin responder.</div>
+    </div></details>` : ''}
+  `;
+  const ta = document.getElementById('t'+n);
+  if (data[q.id]) ta.value = data[q.id];
+  ta.addEventListener('input', ()=>{ save(); count(n); });
+  document.getElementById('m'+n).addEventListener('click', ()=> toggle(n));
+  count(n);
+});
+
+/* ============ navegación ============ */
+let cur = 0;
+function go(n){
+  if (n < 0 || n > 5) return;
+  stopAll();
+  document.getElementById('s'+cur).classList.remove('on');
+  document.getElementById('s'+n).classList.add('on');
+  cur = n;
+  document.getElementById('prog').style.width = (n/5*100) + '%';
+  document.getElementById('stepTxt').innerHTML = n>0 && n<5
+    ? `<b>${String(n).padStart(2,'0')}</b> / 04` : 'Demo de dictado';
+  window.scrollTo({top:0,behavior:'smooth'});
+  if (n===5) render();
+  else if (n>0) setTimeout(()=>document.getElementById('t'+n).focus(), 380);
+}
+
+/* ============ persistencia ============ */
+function save(){
+  QS.forEach((q,i)=>{
+    const el = document.getElementById('t'+(i+1));
+    if (el) data[q.id] = el.value;
+  });
+  try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e){}
+}
+function wipe(){
+  try { localStorage.removeItem(KEY); } catch(e){}
+  data = {};
+  QS.forEach((q,i)=>{ const el=document.getElementById('t'+(i+1)); if(el){el.value=''; count(i+1);} });
+  go(0);
+}
+
+/* ============ contador ============ */
+function count(n){
+  const v = document.getElementById('t'+n).value.trim();
+  const w = v ? v.split(/\s+/).length : 0;
+  const goal = QS[n-1].goal;
+  const pct = Math.min(100, w/goal*100);
+  const fill = document.getElementById('cf'+n);
+  fill.style.width = pct + '%';
+  fill.classList.toggle('done', w >= goal);
+  document.getElementById('ct'+n).textContent =
+    w === 0 ? 'sin responder' : (w >= goal ? w + ' palabras · suficiente' : w + ' de unas ' + goal + ' palabras');
+}
+
+/* ============ voz ============ */
+let rec = null, recN = 0, wantOn = false, stream = null, ac = null, raf = null;
+
+function toggle(n){
+  if (wantOn && recN === n) { stopAll(); return; }
+  stopAll();
+  start(n);
+}
+
+async function start(n){
+  if (!SR){ setState(n,'Este navegador no tiene dictado. Escribe tu respuesta.',true); return; }
+  if (!SECURE){ setState(n,'El dictado necesita https. Abre el enlace publicado.',true); return; }
+
+  try { stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
+  catch(e){ setState(n,'Falta permiso del micrófono. Actívalo en el candado de la barra de direcciones.',true); return; }
+
+  meter(n);
+
+  rec = new SR();
+  rec.lang = 'es-CO';
+  rec.continuous = true;
+  rec.interimResults = true;
+  recN = n; wantOn = true;
+
+  const ta = document.getElementById('t'+n);
+  const gh = document.getElementById('g'+n);
+
+  rec.onresult = (e)=>{
+    let interim = '';
+    for (let i = e.resultIndex; i < e.results.length; i++){
+      const txt = e.results[i][0].transcript;
+      if (e.results[i].isFinal){
+        const sep = ta.value && !/\s$/.test(ta.value) ? ' ' : '';
+        ta.value += sep + txt.trim();
+        save(); count(n);
+      } else interim += txt;
+    }
+    gh.textContent = interim;
+  };
+
+  rec.onerror = (e)=>{
+    if (e.error === 'no-speech') return;
+    if (e.error === 'not-allowed'){ wantOn = false; setState(n,'Permiso denegado. Actívalo en el candado de la barra.',true); ui(n,false); }
+    else setState(n,'Se interrumpió. Toca DICTAR para seguir.',true);
+  };
+
+  rec.onend = ()=>{
+    gh.textContent = '';
+    if (wantOn && recN === n){
+      setState(n,'reconectando');
+      try { rec.start(); setTimeout(()=> wantOn && setState(n,'escuchando'), 400); }
+      catch(err){ wantOn = false; ui(n,false); }
+    } else ui(n,false);
+  };
+
+  try { rec.start(); } catch(err){ setState(n,'Toca DICTAR de nuevo.',true); return; }
+  ui(n,true);
+  setState(n,'escuchando');
+}
+
+function stopAll(){
+  wantOn = false;
+  if (rec){ try{ rec.onend = null; rec.stop(); }catch(e){} rec = null; }
+  if (raf){ cancelAnimationFrame(raf); raf = null; }
+  if (ac){ try{ ac.close(); }catch(e){} ac = null; }
+  if (stream){ stream.getTracks().forEach(t=>t.stop()); stream = null; }
+  for (let i=1;i<=4;i++){
+    ui(i,false);
+    const g = document.getElementById('g'+i); if (g) g.textContent = '';
+    const s = document.getElementById('st'+i); if (s && !s.classList.contains('warn')) s.textContent = '';
+  }
+}
+
+function ui(n,on){
+  const b = document.getElementById('m'+n), l = document.getElementById('ml'+n),
+        f = document.getElementById('f'+n), m = document.getElementById('mt'+n);
+  if (!b) return;
+  b.classList.toggle('rec',on);
+  l.textContent = on ? 'DETENER' : 'DICTAR';
+  f.classList.toggle('live',on);
+  m.classList.toggle('on',on);
+  if (!on) m.querySelectorAll('i').forEach(i=> i.style.height = '3px');
+}
+
+function setState(n,txt,warn){
+  const s = document.getElementById('st'+n);
+  if (!s) return;
+  s.textContent = txt;
+  s.classList.toggle('warn', !!warn);
+}
+
+function meter(n){
+  const bars = document.getElementById('mt'+n).querySelectorAll('i');
+  ac = new (window.AudioContext || window.webkitAudioContext)();
+  const src = ac.createMediaStreamSource(stream);
+  const an = ac.createAnalyser();
+  an.fftSize = 64; an.smoothingTimeConstant = .75;
+  src.connect(an);
+  const buf = new Uint8Array(an.frequencyBinCount);
+  (function loop(){
+    an.getByteFrequencyData(buf);
+    bars.forEach((b,i)=>{
+      const v = buf[i*2+1] || 0;
+      b.style.height = Math.max(3, Math.round(v/255*24)) + 'px';
+    });
+    raf = requestAnimationFrame(loop);
+  })();
+}
+
+/* ============ cierre ============ */
+function render(){
+  save();
+  const payload = { participante:'[nombre]', entidad:'[entidad]', enviado:new Date().toISOString() };
+  QS.forEach(q=> payload[q.id] = (data[q.id]||'').trim());
+  document.getElementById('out').textContent = JSON.stringify(payload,null,2);
+}
+function copyOut(){
+  navigator.clipboard.writeText(document.getElementById('out').textContent).then(()=>{
+    const b = document.getElementById('copyBtn');
+    b.textContent = 'Copiado';
+    setTimeout(()=> b.textContent = 'Copiar resultado', 1800);
+  });
+}
+
+window.addEventListener('beforeunload', save);
+document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
+</script>
+</body>
+</html>
