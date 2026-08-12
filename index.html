@@ -196,6 +196,14 @@ pre{
       </button>
       <button class="btn btn-ghost" onclick="wipe()">Borrar borrador</button>
     </div>
+
+    <details class="alt">
+      <summary>Diagnóstico técnico (solo para esta prueba)</summary>
+      <div class="alt-body">
+        <div id="diagEnv"></div>
+        <pre id="diagLog" style="margin-top:4px;max-height:200px">sin eventos todavía</pre>
+      </div>
+    </details>
   </section>
 
   <!-- PREGUNTAS (generadas) -->
@@ -347,6 +355,15 @@ function count(n){
 
 /* ============ voz ============ */
 let rec = null, recN = 0, wantOn = false, stream = null, ac = null, raf = null;
+let lastStart = 0, flaps = 0;
+const IS_SAFARI = /^((?!chrome|android|crios|edg).)*safari/i.test(navigator.userAgent);
+
+const log = [];
+function diag(msg){
+  log.unshift(new Date().toLocaleTimeString('es-CO') + '  ' + msg);
+  const el = document.getElementById('diagLog');
+  if (el) el.textContent = log.slice(0,12).join('\n');
+}
 
 function toggle(n){
   if (wantOn && recN === n) { stopAll(); return; }
@@ -354,20 +371,17 @@ function toggle(n){
   start(n);
 }
 
-async function start(n){
+/* IMPORTANTE: rec.start() se llama de forma sincrona dentro del clic.
+   Cualquier await previo consume el gesto del usuario y Safari falla en silencio. */
+function start(n){
   if (!SR){ setState(n,'Este navegador no tiene dictado. Escribe tu respuesta.',true); return; }
   if (!SECURE){ setState(n,'El dictado necesita https. Abre el enlace publicado.',true); return; }
 
-  try { stream = await navigator.mediaDevices.getUserMedia({audio:true}); }
-  catch(e){ setState(n,'Falta permiso del micrófono. Actívalo en el candado de la barra de direcciones.',true); return; }
-
-  meter(n);
-
   rec = new SR();
   rec.lang = 'es-CO';
-  rec.continuous = true;
+  rec.continuous = !IS_SAFARI;
   rec.interimResults = true;
-  recN = n; wantOn = true;
+  recN = n; wantOn = true; flaps = 0;
 
   const ta = document.getElementById('t'+n);
   const gh = document.getElementById('g'+n);
@@ -385,24 +399,51 @@ async function start(n){
     gh.textContent = interim;
   };
 
+  rec.onstart = ()=>{ diag('onstart'); };
+
   rec.onerror = (e)=>{
+    diag('error: ' + e.error);
     if (e.error === 'no-speech') return;
-    if (e.error === 'not-allowed'){ wantOn = false; setState(n,'Permiso denegado. Actívalo en el candado de la barra.',true); ui(n,false); }
-    else setState(n,'Se interrumpió. Toca DICTAR para seguir.',true);
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed'){
+      wantOn = false; ui(n,false);
+      setState(n,'Permiso denegado. Actívalo en el candado de la barra de direcciones.',true);
+    } else if (e.error === 'network'){
+      wantOn = false; ui(n,false);
+      setState(n,'Este navegador no puede conectarse al servicio de dictado. Usa Chrome, Edge o Safari.',true);
+    } else {
+      setState(n,'Se interrumpió. Toca DICTAR para seguir.',true);
+    }
   };
 
   rec.onend = ()=>{
     gh.textContent = '';
-    if (wantOn && recN === n){
-      setState(n,'reconectando');
-      try { rec.start(); setTimeout(()=> wantOn && setState(n,'escuchando'), 400); }
-      catch(err){ wantOn = false; ui(n,false); }
-    } else ui(n,false);
+    diag('onend (' + (Date.now()-lastStart) + 'ms)');
+    if (!wantOn || recN !== n){ ui(n,false); return; }
+    /* si termina casi de inmediato varias veces seguidas, no arranco: lo digo */
+    if (Date.now() - lastStart < 400){
+      flaps++;
+      if (flaps >= 3){
+        wantOn = false; ui(n,false);
+        setState(n,'El dictado no arrancó en este navegador. Escribe tu respuesta.',true);
+        return;
+      }
+    } else flaps = 0;
+    setState(n,'reconectando');
+    try { lastStart = Date.now(); rec.start(); setTimeout(()=> wantOn && setState(n,'escuchando'), 400); }
+    catch(err){ wantOn = false; ui(n,false); diag('restart falló: '+err.name); }
   };
 
-  try { rec.start(); } catch(err){ setState(n,'Toca DICTAR de nuevo.',true); return; }
+  try { lastStart = Date.now(); rec.start(); }
+  catch(err){ diag('start falló: '+err.name); setState(n,'Toca DICTAR de nuevo.',true); return; }
   ui(n,true);
   setState(n,'escuchando');
+
+  /* el medidor es opcional y va DESPUÉS: si falla, el dictado sigue funcionando */
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia){
+    navigator.mediaDevices.getUserMedia({audio:true})
+      .then(s=>{ if (!wantOn || recN !== n){ s.getTracks().forEach(t=>t.stop()); return; } stream = s; meter(n); })
+      .catch(e=> diag('medidor sin permiso: '+e.name));
+  }
 }
 
 function stopAll(){
@@ -439,6 +480,7 @@ function setState(n,txt,warn){
 function meter(n){
   const bars = document.getElementById('mt'+n).querySelectorAll('i');
   ac = new (window.AudioContext || window.webkitAudioContext)();
+  if (ac.state === 'suspended') ac.resume().catch(()=>{});
   const src = ac.createMediaStreamSource(stream);
   const an = ac.createAnalyser();
   an.fftSize = 64; an.smoothingTimeConstant = .75;
@@ -468,6 +510,18 @@ function copyOut(){
     setTimeout(()=> b.textContent = 'Copiar resultado', 1800);
   });
 }
+
+/* ============ entorno ============ */
+(function(){
+  const el = document.getElementById('diagEnv');
+  if (!el) return;
+  el.innerHTML =
+    'SpeechRecognition: <b>' + (SR ? 'disponible' : 'NO disponible') + '</b><br>' +
+    'Contexto seguro (https): <b>' + (SECURE ? 'sí' : 'NO') + '</b><br>' +
+    'getUserMedia: <b>' + (navigator.mediaDevices && navigator.mediaDevices.getUserMedia ? 'sí' : 'no') + '</b><br>' +
+    'Motor Safari: <b>' + (IS_SAFARI ? 'sí' : 'no') + '</b><br>' +
+    'Navegador: <span style="font-family:var(--fm);font-size:.75rem">' + navigator.userAgent + '</span>';
+})();
 
 window.addEventListener('beforeunload', save);
 document.addEventListener('visibilitychange', ()=>{ if (document.hidden) save(); });
