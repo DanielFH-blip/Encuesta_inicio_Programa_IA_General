@@ -254,8 +254,8 @@ const FLOW = [
 
   { t:'cap', c:'dudar' },
   { t:'ask', k:'dudar', n:'05', v:'dudar',
-    q:'¿Qué decisión o entregable tuyo le convendría que alguien lo revisara a fondo antes de que salga?',
-    h:'Nos sirve saber qué está en juego cuando algo sale mal, y quién lo revisa hoy.',
+    q:'¿Qué entrega o decisión importante tuya o de tu área debería pasar por una revisión más rigurosa antes de salir?',
+    h:'Cuéntanos quién la revisa hoy y qué pasa si se va con un error. Eso nos dice cuánta verificación hay que montarle encima.',
     p:'El concepto que va a junta. Si una cifra está mala, se toma una decisión sobre un dato falso...' },
 
   { t:'cap', c:'delegar' },
@@ -334,8 +334,8 @@ function render(){
             <div><label class="lbl" for="cargo">Tu cargo</label><input type="text" id="cargo" data-k="cargo" placeholder="Por ejemplo: Directora de Operaciones"></div>
           </div>
           <div class="field" id="f_funcion">
-            <label class="lbl" for="t_funcion">¿De qué respondes en el día a día?</label>
-            <textarea id="t_funcion" data-k="funcion" placeholder="De qué eres responsable, con quién trabajas, qué decisiones pasan por ti."></textarea>
+            <label class="lbl" for="t_funcion">¿De qué eres responsable en el día a día?</label>
+            <textarea id="t_funcion" data-k="funcion" placeholder="Qué está a tu cargo, con quién trabajas, qué decisiones pasan por ti."></textarea>
             <div class="heard" id="h_funcion"></div>
           </div>
           ${micBlock('funcion')}
