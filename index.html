@@ -514,7 +514,16 @@ function startRec(k){
 }
 function stopRec(){
   on=false;
-  if(rec){ try{ rec.onend=null; rec.stop(); }catch(e){} rec=null; }
+  /* el volcado va ANTES de soltar el reconocimiento y de forma sincrónica:
+     si vive dentro de onend, al presionar Detener se pierde lo provisional.
+     Se anula onresult para que un resultado tardío no duplique el texto. */
+  if(pend && cur){
+    const t=document.getElementById('t_'+cur);
+    if(t) volcar(t,cur,pend);
+    else { data[cur]=((data[cur]||'')+' '+pend).trim(); store(); }
+    pend='';
+  }
+  if(rec){ try{ rec.onresult=null; rec.onend=null; rec.stop(); }catch(e){} rec=null; }
   if(cur){ ui(cur,false); const h=document.getElementById('h_'+cur); if(h) h.textContent=''; }
 }
 function ui(k,v){
