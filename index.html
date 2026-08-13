@@ -461,25 +461,30 @@ function warn(t){ const m=document.getElementById('msg'); if(m) m.textContent=t;
 function wipe(){ try{ localStorage.removeItem(KEY); }catch(e){} data={}; i=0; render(); }
 
 /* ======================= dictado ======================= */
-let rec=null,cur=null,on=false,t0=0,flaps=0;
+let rec=null,cur=null,on=false,t0=0,flaps=0,pend='',arranco=false;
+function volcar(ta,k,txt){
+  const t=String(txt||'').trim(); if(!t) return;
+  ta.value += (ta.value && !/\s$/.test(ta.value) ? ' ' : '') + t;
+  grow(ta); data[k]=ta.value; store();
+}
 function toggle(k){ if(on&&cur===k){ stopRec(); return; } stopRec(); startRec(k); }
 /* rec.start() va sincrónico dentro del clic: un await previo consume el gesto */
 function startRec(k){
   if(!CAN) return;
   rec=new SR(); rec.lang='es-CO'; rec.continuous=!IS_SAFARI; rec.interimResults=true;
-  cur=k; on=true; flaps=0;
+  cur=k; on=true; flaps=0; pend=''; arranco=false;
   const ta=document.getElementById('t_'+k), hd=document.getElementById('h_'+k);
   if(!ta) return;
   rec.onresult=e=>{
     let itm='';
     for(let n=e.resultIndex;n<e.results.length;n++){
       const t=e.results[n][0].transcript;
-      if(e.results[n].isFinal){
-        ta.value += (ta.value && !/\s$/.test(ta.value) ? ' ' : '') + t.trim();
-        grow(ta); data[k]=ta.value; store();
-      } else itm+=t;
+      if(e.results[n].isFinal){ volcar(ta,k,t); pend=''; }
+      else itm+=t;
     }
+    pend=itm;
     if(hd) hd.textContent=itm;
+    if(itm||!pend) say(k,'te escuchamos');
   };
   rec.onerror=e=>{
     if(e.error==='no-speech') return;
@@ -490,17 +495,22 @@ function startRec(k){
     } else say(k,'Se interrumpió. Toca de nuevo para seguir.',1);
   };
   rec.onend=()=>{
+    if(pend){ volcar(ta,k,pend); pend=''; }   // nada de lo dicho se pierde
     if(hd) hd.textContent='';
     if(!on||cur!==k){ ui(k,false); return; }
-    if(IS_SAFARI){ on=false; ui(k,false); say(k,'En pausa. Toca de nuevo para seguir.'); return; }
+    if(IS_SAFARI){ on=false; ui(k,false);
+      say(k, ta.value.trim()? 'En pausa. Toca de nuevo para seguir.' : 'No se captó nada. Revisa el permiso del micrófono.', !ta.value.trim());
+      return; }
     if(Date.now()-t0<400){ if(++flaps>=3){ on=false; ui(k,false); say(k,'El dictado no arrancó acá. Escribe tu respuesta.',1); return; } }
     else flaps=0;
     say(k,'reconectando');
     try{ t0=Date.now(); rec.start(); setTimeout(()=>on&&say(k,'te escuchamos'),400); }
     catch(err){ on=false; ui(k,false); }
   };
+  rec.onstart=()=>{ arranco=true; say(k,'te escuchamos'); };
   try{ t0=Date.now(); rec.start(); }catch(err){ say(k,'Toca de nuevo.',1); return; }
-  ui(k,true); say(k,'te escuchamos');
+  ui(k,true); say(k,'conectando...');
+  setTimeout(()=>{ if(on&&cur===k&&!arranco) say(k,'El micrófono no respondió. Revisa el permiso en el candado de la barra.',1); },2500);
 }
 function stopRec(){
   on=false;
