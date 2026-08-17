@@ -41,14 +41,6 @@ body::after{
 :focus-visible{outline:2px solid var(--cyan);outline-offset:4px;border-radius:3px}
 @media (prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
-/* ---------- marco de expediente ---------- */
-.mark{position:fixed;width:34px;height:34px;z-index:60;pointer-events:none}
-.mark.tl{top:74px;left:var(--pad);border-top:1px solid var(--cyan);border-left:1px solid var(--cyan);
-  border-top-left-radius:34px;opacity:.85}
-.mark.br{bottom:32px;right:var(--pad);border-bottom:1px solid var(--border-a);border-right:1px solid var(--border-a);
-  border-bottom-right-radius:34px}
-@media (max-width:700px){.mark{display:none}}
-
 /* ---------- cabecera ---------- */
 .top{
   position:fixed;top:0;left:0;right:0;z-index:200;
@@ -192,8 +184,6 @@ pre{background:var(--steel);border:1px solid var(--border);border-radius:2px;pad
 </head>
 <body>
 
-<span class="mark tl"></span><span class="mark br"></span>
-
 <header class="top">
   <a href="#" class="n-logo" aria-label="Vectiva Consulting">
     <div class="n-logo-text"><span class="n-logo-main">VECTIVA</span><span class="n-logo-sub">CONSULTING</span></div>
@@ -330,8 +320,9 @@ function render(){
         <p class="help rev d3">Preparar un ejercicio para alguien de operaciones no se parece en nada a prepararlo para alguien de gestión humana, y queremos acertar.</p>
         <div class="rev d4">
           <div class="field two">
-            <div><label class="lbl" for="nombre">Tu nombre completo</label><input type="text" id="nombre" data-k="nombre" placeholder="Nombre y apellido"></div>
-            <div><label class="lbl" for="cargo">Tu cargo</label><input type="text" id="cargo" data-k="cargo" placeholder="Por ejemplo: Directora de Operaciones"></div>
+            <div><label class="lbl" for="nombre">Tu nombre completo</label><input type="text" id="nombre" data-k="nombre" placeholder="Nombre y apellido" autocomplete="name"></div>
+            <div><label class="lbl" for="correo">Tu correo de trabajo</label><input type="text" id="correo" data-k="correo" placeholder="nombre@empresa.com" inputmode="email" autocomplete="email" spellcheck="false" autocapitalize="off"></div>
+            <div><label class="lbl" for="cargo">Tu cargo</label><input type="text" id="cargo" data-k="cargo" placeholder="Por ejemplo: Directora de Operaciones" autocomplete="organization-title"></div>
           </div>
           <div class="field" id="f_funcion">
             <label class="lbl" for="t_funcion">¿De qué eres responsable en el día a día?</label>
@@ -340,6 +331,7 @@ function render(){
           </div>
           ${micBlock('funcion')}
         </div>
+        <p class="tiny rev d5">Te escribimos al correo para mandarte el material de tu sesión y para preguntarte, si hace falta, algo que nos quedó suelto de tu caso.</p>
         <div class="act rev d5">
           <button class="btn" onclick="next()">Seguir ${arrow}</button>
           <button class="back" onclick="prev()">Atrás</button>
@@ -449,6 +441,11 @@ function next(){
     const nm=(data.nombre||'').trim();
     if(!nm){ warn('Nos falta tu nombre para saber de quién es el caso.'); document.getElementById('nombre').focus(); return; }
     if(nm.split(/\s+/).length<2){ warn('Escríbenos tu nombre y tu apellido, así te identificamos en la lista.'); document.getElementById('nombre').focus(); return; }
+    /* El correo se valida de forma, no de existencia: un dedazo se atrapa acá,
+       pero una dirección que ya no existe solo se descubre al escribirle. */
+    const co=(data.correo||'').trim();
+    if(!co){ warn('Nos falta tu correo para mandarte el material de tu sesión.'); document.getElementById('correo').focus(); return; }
+    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(co)){ warn('Ese correo no se ve completo. Revísalo, va con arroba y con dominio.'); document.getElementById('correo').focus(); return; }
   }
   if(s.t==='ask' && s.k==='cuello' && (data.cuello||'').trim().length<15){
     warn('Cuéntanos aunque sea en una frase qué te está consumiendo el tiempo.'); return;
@@ -538,8 +535,13 @@ function say(k,txt,w){ const s=document.getElementById('s_'+k); if(!s) return; s
 
 /* ======================= envío ======================= */
 function payload(){
+  /* El correo va en minúscula y sin espacios porque es la llave con la que
+     después se cruza esta respuesta con la del cierre. "Ana@X.com" y
+     "ana@x.com" son la misma persona y no pueden llegar como dos filas. */
   const p={ enviado:new Date().toISOString(),
-            nombre:(data.nombre||'').trim(), cargo:(data.cargo||'').trim(), funcion:(data.funcion||'').trim() };
+            nombre:(data.nombre||'').trim(),
+            correo:(data.correo||'').trim().toLowerCase(),
+            cargo:(data.cargo||'').trim(), funcion:(data.funcion||'').trim() };
   ASKS.forEach(a=> p[a.k]=(data[a.k]||'').trim());
   return p;
 }
